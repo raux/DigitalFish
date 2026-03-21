@@ -122,3 +122,15 @@ class TestToJson:
         assert "birth_commit" in keys
         assert "lazarus_count" in keys
         assert "commit_hashes" in keys
+
+    def test_json_includes_file_path_and_lines(self):
+        fish = _make_fish("func", 5)
+        fish.file_path = "src/utils.py"
+        fish.start_line = 10
+        fish.end_line = 20
+        r = Reporter([fish])
+        data = json.loads(r.to_json())
+        assert data[0]["file_path"] == "src/utils.py"
+        assert data[0]["start_line"] == 10
+        assert data[0]["end_line"] == 20
+        assert data[0]["display_name"] == "src/utils.py::func [L10-20]"
