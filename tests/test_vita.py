@@ -134,6 +134,18 @@ class TestVitaFishData:
         assert "mutation_rate" in fish
         assert "line_count" in fish
         assert "birth_commit" in fish
+        assert "file_path" in fish
+        assert "start_line" in fish
+        assert "end_line" in fish
+
+    def test_fish_data_display_name_with_file_path(self):
+        fish = _make_fish("process_data", 5)
+        fish.file_path = "src/app.py"
+        fish.start_line = 10
+        fish.end_line = 25
+        v = Vita([fish], total_commits=10)
+        data = json.loads(v._fish_data_json())
+        assert data[0]["name"] == "src/app.py::process_data [L10-25]"
 
     def test_top_n_respected_in_render(self):
         pop = [_make_fish(f"f{i}", i) for i in range(30)]

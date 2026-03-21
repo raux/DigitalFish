@@ -123,6 +123,22 @@ class TestAnalyzerWithMockedRepo:
         assert len(analyzer.population) == 1
         assert analyzer.population[0].name == "process_data"
 
+    def test_fish_has_file_path(self):
+        commit1 = _make_commit("c1", [_make_modified_file("a.py", BIG_FUNC)])
+        analyzer = _run_analyzer([commit1])
+        fish = analyzer.population[0]
+        assert fish.file_path == "a.py"
+        assert fish.start_line > 0
+        assert fish.end_line >= fish.start_line
+
+    def test_fish_display_name_includes_file_and_loc(self):
+        commit1 = _make_commit("c1", [_make_modified_file("a.py", BIG_FUNC)])
+        analyzer = _run_analyzer([commit1])
+        fish = analyzer.population[0]
+        assert "a.py" in fish.display_name
+        assert "process_data" in fish.display_name
+        assert "[L" in fish.display_name
+
     def test_fish_survives_similar_commit(self):
         commit1 = _make_commit("c1", [_make_modified_file("a.py", BIG_FUNC)])
         commit2 = _make_commit("c2", [_make_modified_file("a.py", MUTATED_FUNC)])

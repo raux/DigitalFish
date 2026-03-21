@@ -73,15 +73,15 @@ class Reporter:
         buf = io.StringIO()
         buf.write("=== Survival Heatmap ===\n")
         buf.write(
-            f"{'Fish Name':<40} {'Age':>5}  {'Stability':<22} {'Mut.Rate':>8}  {'Lines':>5}  Status\n"
+            f"{'Fish Name':<60} {'Age':>5}  {'Stability':<22} {'Mut.Rate':>8}  {'Lines':>5}  Status\n"
         )
-        buf.write("-" * 97 + "\n")
+        buf.write("-" * 117 + "\n")
         for fish in top:
             bar = _bar(fish.age / max_age)
             status = "alive" if fish.is_alive else "extinct"
-            name = fish.name[:38] + ".." if len(fish.name) > 40 else fish.name
+            name = fish.display_name[:58] + ".." if len(fish.display_name) > 60 else fish.display_name
             buf.write(
-                f"{name:<40} {fish.age:>5}  {bar:<22} {fish.mutation_rate:>8.3f}  {fish.line_count:>5}  {status}\n"
+                f"{name:<60} {fish.age:>5}  {bar:<22} {fish.mutation_rate:>8.3f}  {fish.line_count:>5}  {status}\n"
             )
         if len(sorted_fish) > self.top_n:
             buf.write(
@@ -109,13 +109,13 @@ class Reporter:
         buf = io.StringIO()
         buf.write("=== The Lazarus Report ===\n")
         buf.write("Code that was deleted and later reintroduced:\n\n")
-        buf.write(f"{'Fish Name':<40} {'Resurrections':>14}  {'Age':>5}  {'Lines':>5}  Status\n")
-        buf.write("-" * 79 + "\n")
+        buf.write(f"{'Fish Name':<60} {'Resurrections':>14}  {'Age':>5}  {'Lines':>5}  Status\n")
+        buf.write("-" * 99 + "\n")
         for fish in lazarus_fish[: self.top_n]:
-            name = fish.name[:38] + ".." if len(fish.name) > 40 else fish.name
+            name = fish.display_name[:58] + ".." if len(fish.display_name) > 60 else fish.display_name
             status = "alive" if fish.is_alive else "extinct"
             buf.write(
-                f"{name:<40} {fish.lazarus_count:>14}  {fish.age:>5}  {fish.line_count:>5}  {status}\n"
+                f"{name:<60} {fish.lazarus_count:>14}  {fish.age:>5}  {fish.line_count:>5}  {status}\n"
             )
         return buf.getvalue()
 
@@ -186,6 +186,10 @@ class Reporter:
             {
                 "fish_id": fish.fish_id,
                 "name": fish.name,
+                "display_name": fish.display_name,
+                "file_path": fish.file_path,
+                "start_line": fish.start_line,
+                "end_line": fish.end_line,
                 "birth_commit": fish.birth_commit,
                 "age": fish.age,
                 "mutation_rate": fish.mutation_rate,

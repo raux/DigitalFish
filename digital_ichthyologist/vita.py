@@ -85,13 +85,16 @@ class Vita:
         records = []
         for fish in self.population:
             records.append({
-                "name": fish.name,
+                "name": fish.display_name,
                 "age": fish.age,
                 "mutation_rate": round(fish.mutation_rate, 4),
                 "is_alive": fish.is_alive,
                 "lazarus_count": fish.lazarus_count,
                 "line_count": fish.line_count,
                 "birth_commit": fish.birth_commit[:8],
+                "file_path": fish.file_path,
+                "start_line": fish.start_line,
+                "end_line": fish.end_line,
             })
         return json.dumps(records)
 

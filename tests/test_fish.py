@@ -21,6 +21,19 @@ class TestDigitalFishCreation:
         assert fish.lazarus_count == 0
         assert fish.extinction_commit is None
 
+    def test_file_path_defaults(self):
+        fish = DigitalFish("foo", SIMPLE_CONTENT, "abc123")
+        assert fish.file_path == ""
+        assert fish.start_line == 0
+        assert fish.end_line == 0
+
+    def test_file_path_set_at_creation(self):
+        fish = DigitalFish("foo", SIMPLE_CONTENT, "abc123",
+                           file_path="src/utils.py", start_line=10, end_line=25)
+        assert fish.file_path == "src/utils.py"
+        assert fish.start_line == 10
+        assert fish.end_line == 25
+
     def test_fish_id_is_deterministic(self):
         f1 = DigitalFish("foo", SIMPLE_CONTENT, "abc123")
         f2 = DigitalFish("foo", SIMPLE_CONTENT, "abc123")
@@ -111,3 +124,26 @@ class TestDigitalFishLineCount:
     def test_empty_content(self):
         fish = DigitalFish("empty", "", "abc")
         assert fish.line_count == 0
+
+
+class TestDigitalFishDisplayName:
+    def test_display_name_with_file_path(self):
+        fish = DigitalFish("process_data", SIMPLE_CONTENT, "abc123",
+                           file_path="src/utils.py", start_line=10, end_line=25)
+        assert fish.display_name == "src/utils.py::process_data [L10-25]"
+
+    def test_display_name_without_file_path(self):
+        fish = DigitalFish("process_data", SIMPLE_CONTENT, "abc123")
+        assert fish.display_name == "process_data"
+
+    def test_display_name_with_class_method(self):
+        fish = DigitalFish("Animal.speak", SIMPLE_CONTENT, "abc123",
+                           file_path="models.py", start_line=5, end_line=12)
+        assert fish.display_name == "models.py::Animal.speak [L5-12]"
+
+    def test_display_name_updates_with_line_changes(self):
+        fish = DigitalFish("foo", SIMPLE_CONTENT, "abc123",
+                           file_path="a.py", start_line=1, end_line=5)
+        fish.start_line = 10
+        fish.end_line = 15
+        assert fish.display_name == "a.py::foo [L10-15]"

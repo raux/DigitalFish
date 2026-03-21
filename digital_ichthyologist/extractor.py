@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import ast
 import textwrap
-from typing import Dict, Optional
+from typing import Dict, NamedTuple, Optional
+
+
+class BlockInfo(NamedTuple):
+    """Metadata for a single extracted code block."""
+
+    source: str
+    start_line: int
+    end_line: int
 
 
 def _get_source_segment(source: str, node: ast.AST) -> Optional[str]:
@@ -38,7 +46,7 @@ def get_functions_and_classes(
     *,
     include_classes: bool = True,
     include_methods: bool = True,
-) -> Dict[str, str]:
+) -> Dict[str, BlockInfo]:
     """Extract top-level functions, classes, and (optionally) methods.
 
     Args:
@@ -47,15 +55,15 @@ def get_functions_and_classes(
         include_methods: Whether to also extract methods inside classes.
 
     Returns:
-        A mapping of *qualified_name* → *source_text* for every discovered
-        code block.
+        A mapping of *qualified_name* → :class:`BlockInfo` for every
+        discovered code block.
     """
     try:
         tree = ast.parse(source_code)
     except SyntaxError:
         return {}
 
-    blocks: Dict[str, str] = {}
+    blocks: Dict[str, BlockInfo] = {}
     lines = source_code.splitlines(keepends=True)
 
     def _extract_node(node: ast.AST, parent_name: Optional[str] = None) -> None:
@@ -70,15 +78,18 @@ def get_functions_and_classes(
         # Dedent so that methods are not indented relative to their class
         segment = textwrap.dedent(segment)
 
+        start_line: int = getattr(node, "lineno", 0)
+        end_line: int = getattr(node, "end_lineno", start_line)
+
         if isinstance(node, ast.ClassDef):
             if include_classes:
-                blocks[qname] = segment
+                blocks[qname] = BlockInfo(segment, start_line, end_line)
             if include_methods:
                 for child in ast.iter_child_nodes(node):
                     if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         _extract_node(child, parent_name=qname)
         else:
-            blocks[qname] = segment
+            blocks[qname] = BlockInfo(segment, start_line, end_line)
 
     for top_node in ast.iter_child_nodes(tree):
         _extract_node(top_node)

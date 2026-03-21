@@ -7,7 +7,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 from rapidfuzz import fuzz
 
-from .extractor import get_functions_and_classes
+from .extractor import BlockInfo, get_functions_and_classes
 from .fish import DigitalFish
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Type aliases
 # ---------------------------------------------------------------------------
-BlockMap = Dict[str, str]  # qualified_name -> source_text
+BlockMap = Dict[str, BlockInfo]  # qualified_name -> BlockInfo(source, start_line, end_line)
 
 
 # ---------------------------------------------------------------------------
@@ -49,28 +49,28 @@ def _find_best_match(
     current_blocks: BlockMap,
     similarity_threshold: float,
     size_threshold: int,
-) -> Optional[Tuple[str, str, float]]:
+) -> Optional[Tuple[str, BlockInfo, float]]:
     """Find the best-matching block for *fish* in *current_blocks*.
 
     Returns:
-        ``(name, content, similarity)`` for the best match, or ``None`` if no
-        block exceeds the thresholds.
+        ``(name, block_info, similarity)`` for the best match, or ``None`` if
+        no block exceeds the thresholds.
     """
     best_name: Optional[str] = None
-    best_content: Optional[str] = None
+    best_info: Optional[BlockInfo] = None
     best_sim: float = 0.0
 
-    for name, content in current_blocks.items():
-        if _meaningful_lines(content) < size_threshold:
+    for name, info in current_blocks.items():
+        if _meaningful_lines(info.source) < size_threshold:
             continue
-        sim = _similarity(fish.content, content)
+        sim = _similarity(fish.content, info.source)
         if sim >= similarity_threshold and sim > best_sim:
             best_name = name
-            best_content = content
+            best_info = info
             best_sim = sim
 
     if best_name is not None:
-        return best_name, best_content, best_sim  # type: ignore[return-value]
+        return best_name, best_info, best_sim  # type: ignore[return-value]
     return None
 
 
@@ -119,6 +119,8 @@ class Analyzer:
         self._active: List[DigitalFish] = []
         # Running snapshot of code blocks per file (filename → BlockMap)
         self._file_blocks: Dict[str, BlockMap] = {}
+        # Map from qualified name to the filename it belongs to
+        self._block_files: Dict[str, str] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -198,8 +200,11 @@ class Analyzer:
 
         # Build the complete block map from all tracked files.
         blocks: BlockMap = {}
-        for file_blocks in self._file_blocks.values():
-            blocks.update(file_blocks)
+        self._block_files = {}
+        for filename, file_blocks in self._file_blocks.items():
+            for qname, info in file_blocks.items():
+                blocks[qname] = info
+                self._block_files[qname] = filename
         return blocks
 
     def _process_commit(self, current_blocks: BlockMap, commit_hash: str) -> None:
@@ -219,24 +224,37 @@ class Analyzer:
                 fish, unclaimed, self.similarity_threshold, self.size_threshold
             )
             if match is not None:
-                matched_name, matched_content, sim = match
-                fish.survive(matched_content, commit_hash, sim)
+                matched_name, matched_info, sim = match
+                fish.survive(matched_info.source, commit_hash, sim)
+                fish.file_path = self._block_files.get(matched_name, fish.file_path)
+                fish.start_line = matched_info.start_line
+                fish.end_line = matched_info.end_line
                 still_alive.append(fish)
                 del unclaimed[matched_name]
             else:
                 fish.go_extinct(commit_hash)
 
         # --- birth / resurrection pass ---
-        for name, content in unclaimed.items():
-            if _meaningful_lines(content) < self.size_threshold:
+        for name, info in unclaimed.items():
+            if _meaningful_lines(info.source) < self.size_threshold:
                 continue  # plankton – too small to track
 
+            file_path = self._block_files.get(name, "")
+
             # Check whether an extinct fish with the same name can be revived
-            revived = self._try_resurrect(name, content, commit_hash)
+            revived = self._try_resurrect(name, info.source, commit_hash)
             if revived is not None:
+                revived.file_path = file_path
+                revived.start_line = info.start_line
+                revived.end_line = info.end_line
                 still_alive.append(revived)
             else:
-                new_fish = DigitalFish(name, content, commit_hash)
+                new_fish = DigitalFish(
+                    name, info.source, commit_hash,
+                    file_path=file_path,
+                    start_line=info.start_line,
+                    end_line=info.end_line,
+                )
                 self.population.append(new_fish)
                 still_alive.append(new_fish)
 

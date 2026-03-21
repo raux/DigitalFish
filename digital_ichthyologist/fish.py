@@ -14,6 +14,9 @@ class DigitalFish:
         name: Qualified name of the function or class.
         content: Source text of the code block.
         birth_commit: SHA of the commit where this fish was first seen.
+        file_path: Path of the source file that contains this fish.
+        start_line: Starting line number of the code block in its file.
+        end_line: Ending line number of the code block in its file.
         fish_id: Stable integer identity derived from name + birth_commit.
         age: Number of commits in which this fish has survived.
         mutation_rate: Cumulative similarity distance (1 - ratio) accumulated
@@ -30,6 +33,9 @@ class DigitalFish:
     name: str
     content: str
     birth_commit: str
+    file_path: str = ""
+    start_line: int = 0
+    end_line: int = 0
     fish_id: int = field(init=False)
     age: int = field(default=0, init=False)
     mutation_rate: float = field(default=0.0, init=False)
@@ -89,6 +95,16 @@ class DigitalFish:
     # ------------------------------------------------------------------
 
     @property
+    def display_name(self) -> str:
+        """Human-readable name including file path and line numbers."""
+        if self.file_path:
+            return (
+                f"{self.file_path}::{self.name} "
+                f"[L{self.start_line}-{self.end_line}]"
+            )
+        return self.name
+
+    @property
     def line_count(self) -> int:
         """Number of non-empty, non-comment lines in the current content."""
         return sum(
@@ -100,6 +116,6 @@ class DigitalFish:
     def __repr__(self) -> str:
         status = "alive" if self.is_alive else "extinct"
         return (
-            f"DigitalFish(name={self.name!r}, age={self.age}, "
+            f"DigitalFish(name={self.display_name!r}, age={self.age}, "
             f"mutation_rate={self.mutation_rate:.3f}, status={status})"
         )

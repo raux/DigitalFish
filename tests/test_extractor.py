@@ -2,7 +2,7 @@
 
 import pytest
 
-from digital_ichthyologist.extractor import get_functions_and_classes
+from digital_ichthyologist.extractor import BlockInfo, get_functions_and_classes
 
 
 SIMPLE_SOURCE = """\
@@ -50,7 +50,7 @@ class TestGetFunctionsAndClasses:
 
     def test_function_content_present(self):
         result = get_functions_and_classes(SIMPLE_SOURCE)
-        assert "Hello" in result["greet"]
+        assert "Hello" in result["greet"].source
 
     def test_extracts_class(self):
         result = get_functions_and_classes(CLASS_SOURCE)
@@ -93,5 +93,24 @@ class TestGetFunctionsAndClasses:
     def test_method_content_dedented(self):
         result = get_functions_and_classes(CLASS_SOURCE)
         # The extracted method should start at column 0 (after dedent)
-        first_line = result["Animal.speak"].splitlines()[0]
+        first_line = result["Animal.speak"].source.splitlines()[0]
         assert not first_line.startswith("    ")
+
+    def test_returns_block_info_with_line_numbers(self):
+        result = get_functions_and_classes(SIMPLE_SOURCE)
+        info = result["greet"]
+        assert isinstance(info, BlockInfo)
+        assert info.start_line == 1
+        assert info.end_line == 2
+
+    def test_class_line_numbers(self):
+        result = get_functions_and_classes(CLASS_SOURCE)
+        info = result["Animal"]
+        assert info.start_line == 1
+        assert info.end_line == 9
+
+    def test_method_line_numbers(self):
+        result = get_functions_and_classes(CLASS_SOURCE)
+        info = result["Animal.speak"]
+        assert info.start_line == 2
+        assert info.end_line == 4
