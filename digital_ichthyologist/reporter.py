@@ -73,15 +73,15 @@ class Reporter:
         buf = io.StringIO()
         buf.write("=== Survival Heatmap ===\n")
         buf.write(
-            f"{'Fish Name':<40} {'Age':>5}  {'Stability':<22} {'Mut.Rate':>8}  Status\n"
+            f"{'Fish Name':<40} {'Age':>5}  {'Stability':<22} {'Mut.Rate':>8}  {'Lines':>5}  Status\n"
         )
-        buf.write("-" * 90 + "\n")
+        buf.write("-" * 97 + "\n")
         for fish in top:
             bar = _bar(fish.age / max_age)
             status = "alive" if fish.is_alive else "extinct"
             name = fish.name[:38] + ".." if len(fish.name) > 40 else fish.name
             buf.write(
-                f"{name:<40} {fish.age:>5}  {bar:<22} {fish.mutation_rate:>8.3f}  {status}\n"
+                f"{name:<40} {fish.age:>5}  {bar:<22} {fish.mutation_rate:>8.3f}  {fish.line_count:>5}  {status}\n"
             )
         if len(sorted_fish) > self.top_n:
             buf.write(
@@ -109,13 +109,13 @@ class Reporter:
         buf = io.StringIO()
         buf.write("=== The Lazarus Report ===\n")
         buf.write("Code that was deleted and later reintroduced:\n\n")
-        buf.write(f"{'Fish Name':<40} {'Resurrections':>14}  {'Age':>5}  Status\n")
-        buf.write("-" * 72 + "\n")
+        buf.write(f"{'Fish Name':<40} {'Resurrections':>14}  {'Age':>5}  {'Lines':>5}  Status\n")
+        buf.write("-" * 79 + "\n")
         for fish in lazarus_fish[: self.top_n]:
             name = fish.name[:38] + ".." if len(fish.name) > 40 else fish.name
             status = "alive" if fish.is_alive else "extinct"
             buf.write(
-                f"{name:<40} {fish.lazarus_count:>14}  {fish.age:>5}  {status}\n"
+                f"{name:<40} {fish.lazarus_count:>14}  {fish.age:>5}  {fish.line_count:>5}  {status}\n"
             )
         return buf.getvalue()
 

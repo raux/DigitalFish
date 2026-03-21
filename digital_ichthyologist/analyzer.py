@@ -117,6 +117,8 @@ class Analyzer:
         self.population: List[DigitalFish] = []
         # Currently alive fish (mutates per commit)
         self._active: List[DigitalFish] = []
+        # Running snapshot of code blocks per file (filename → BlockMap)
+        self._file_blocks: Dict[str, BlockMap] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -160,8 +162,18 @@ class Analyzer:
     # ------------------------------------------------------------------
 
     def _extract_blocks(self, commit: object) -> BlockMap:
-        """Return all code blocks visible in *commit*."""
-        blocks: BlockMap = {}
+        """Return all code blocks visible in *commit*.
+
+        Maintains a running snapshot (``_file_blocks``) of code blocks per
+        file.  Only files that appear in *commit.modified_files* are updated;
+        blocks from untouched files are carried forward so that their fish are
+        not incorrectly marked as extinct.  When a file is deleted or emptied
+        its blocks are removed from the snapshot.
+
+        Returns:
+            A :data:`BlockMap` (qualified-name → source-text) representing
+            every tracked code block across all files.
+        """
         for modified_file in commit.modified_files:  # type: ignore[attr-defined]
             if not any(
                 modified_file.filename.endswith(ext) for ext in self.file_extensions
@@ -169,9 +181,13 @@ class Analyzer:
                 continue
             source = modified_file.source_code
             if not source:
+                # File was deleted or emptied – remove its tracked blocks.
+                self._file_blocks.pop(modified_file.filename, None)
                 continue
             try:
-                blocks.update(get_functions_and_classes(source))
+                self._file_blocks[modified_file.filename] = (
+                    get_functions_and_classes(source)
+                )
             except Exception as exc:  # pragma: no cover
                 logger.warning(
                     "Could not parse %s at %s: %s",
@@ -179,6 +195,11 @@ class Analyzer:
                     commit.hash[:8],  # type: ignore[attr-defined]
                     exc,
                 )
+
+        # Build the complete block map from all tracked files.
+        blocks: BlockMap = {}
+        for file_blocks in self._file_blocks.values():
+            blocks.update(file_blocks)
         return blocks
 
     def _process_commit(self, current_blocks: BlockMap, commit_hash: str) -> None:
