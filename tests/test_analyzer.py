@@ -105,27 +105,28 @@ def validate_config(config_path):
 """
 
 
+def _run_analyzer(commits: list) -> Analyzer:
+    """Run an analyzer against a fake sequence of commits."""
+    analyzer = Analyzer("fake/repo", similarity_threshold=0.7, size_threshold=3)
+
+    with patch("pydriller.Repository") as MockRepo:
+        MockRepo.return_value.traverse_commits.return_value = iter(commits)
+        analyzer.run()
+
+    return analyzer
+
+
 class TestAnalyzerWithMockedRepo:
-    def _run_analyzer(self, commits: list) -> Analyzer:
-        """Run analyzer against a fake sequence of commits."""
-        analyzer = Analyzer("fake/repo", similarity_threshold=0.7, size_threshold=3)
-
-        with patch("pydriller.Repository") as MockRepo:
-            MockRepo.return_value.traverse_commits.return_value = iter(commits)
-            analyzer.run()
-
-        return analyzer
-
     def test_new_fish_born_in_first_commit(self):
         commit1 = _make_commit("c1", [_make_modified_file("a.py", BIG_FUNC)])
-        analyzer = self._run_analyzer([commit1])
+        analyzer = _run_analyzer([commit1])
         assert len(analyzer.population) == 1
         assert analyzer.population[0].name == "process_data"
 
     def test_fish_survives_similar_commit(self):
         commit1 = _make_commit("c1", [_make_modified_file("a.py", BIG_FUNC)])
         commit2 = _make_commit("c2", [_make_modified_file("a.py", MUTATED_FUNC)])
-        analyzer = self._run_analyzer([commit1, commit2])
+        analyzer = _run_analyzer([commit1, commit2])
         # Still one fish (same identity survived)
         assert len(analyzer.population) == 1
         fish = analyzer.population[0]
@@ -136,20 +137,20 @@ class TestAnalyzerWithMockedRepo:
         commit1 = _make_commit("c1", [_make_modified_file("a.py", BIG_FUNC)])
         # Second commit removes the file / function
         commit2 = _make_commit("c2", [_make_modified_file("a.py", "")])
-        analyzer = self._run_analyzer([commit1, commit2])
+        analyzer = _run_analyzer([commit1, commit2])
         assert len(analyzer.population) == 1
         assert analyzer.population[0].is_alive is False
 
     def test_small_function_below_threshold_ignored(self):
         commit1 = _make_commit("c1", [_make_modified_file("a.py", SMALL_FUNC)])
-        analyzer = self._run_analyzer([commit1])
+        analyzer = _run_analyzer([commit1])
         assert len(analyzer.population) == 0
 
     def test_lazarus_event_detected(self):
         commit1 = _make_commit("c1", [_make_modified_file("a.py", BIG_FUNC)])
         commit2 = _make_commit("c2", [_make_modified_file("a.py", "")])
         commit3 = _make_commit("c3", [_make_modified_file("a.py", BIG_FUNC)])
-        analyzer = self._run_analyzer([commit1, commit2, commit3])
+        analyzer = _run_analyzer([commit1, commit2, commit3])
         # Only one fish should exist (reborn as Lazarus)
         assert len(analyzer.population) == 1
         fish = analyzer.population[0]
@@ -159,14 +160,14 @@ class TestAnalyzerWithMockedRepo:
     def test_multiple_fish_tracked_independently(self):
         two_funcs = BIG_FUNC + "\n" + MUTATED_FUNC.replace("process_data", "other_func")
         commit1 = _make_commit("c1", [_make_modified_file("a.py", two_funcs)])
-        analyzer = self._run_analyzer([commit1])
+        analyzer = _run_analyzer([commit1])
         names = {f.name for f in analyzer.population}
         assert "process_data" in names
         assert "other_func" in names
 
     def test_non_python_files_ignored(self):
         commit1 = _make_commit("c1", [_make_modified_file("data.txt", BIG_FUNC)])
-        analyzer = self._run_analyzer([commit1])
+        analyzer = _run_analyzer([commit1])
         assert len(analyzer.population) == 0
 
 
@@ -177,13 +178,6 @@ class TestAnalyzerWithMockedRepo:
 class TestFishStaysAlive:
     """Cases where fish must remain alive across commits."""
 
-    def _run_analyzer(self, commits: list) -> Analyzer:
-        analyzer = Analyzer("fake/repo", similarity_threshold=0.7, size_threshold=3)
-        with patch("pydriller.Repository") as MockRepo:
-            MockRepo.return_value.traverse_commits.return_value = iter(commits)
-            analyzer.run()
-        return analyzer
-
     def test_fish_survives_when_other_file_modified(self):
         """Fish in an untouched file must not go extinct."""
         commit1 = _make_commit("c1", [
@@ -192,7 +186,7 @@ class TestFishStaysAlive:
         ])
         # Only a.py is modified in the second commit
         commit2 = _make_commit("c2", [_make_modified_file("a.py", MUTATED_FUNC)])
-        analyzer = self._run_analyzer([commit1, commit2])
+        analyzer = _run_analyzer([commit1, commit2])
 
         alive_fish = [f for f in analyzer.population if f.is_alive]
         names = {f.name for f in alive_fish}
@@ -208,7 +202,7 @@ class TestFishStaysAlive:
         ])
         commit2 = _make_commit("c2", [_make_modified_file("a.py", MUTATED_FUNC)])
         commit3 = _make_commit("c3", [_make_modified_file("a.py", BIG_FUNC)])
-        analyzer = self._run_analyzer([commit1, commit2, commit3])
+        analyzer = _run_analyzer([commit1, commit2, commit3])
 
         other = [f for f in analyzer.population if f.name == "other_func"][0]
         assert other.is_alive is True
@@ -221,7 +215,7 @@ class TestFishStaysAlive:
             _make_modified_file("c.py", THIRD_FUNC),
         ])
         commit2 = _make_commit("c2", [_make_modified_file("a.py", MUTATED_FUNC)])
-        analyzer = self._run_analyzer([commit1, commit2])
+        analyzer = _run_analyzer([commit1, commit2])
 
         assert all(f.is_alive for f in analyzer.population)
         assert len(analyzer.population) == 3
@@ -230,7 +224,7 @@ class TestFishStaysAlive:
         """Fish with unchanged content still survives."""
         commit1 = _make_commit("c1", [_make_modified_file("a.py", BIG_FUNC)])
         commit2 = _make_commit("c2", [_make_modified_file("a.py", BIG_FUNC)])
-        analyzer = self._run_analyzer([commit1, commit2])
+        analyzer = _run_analyzer([commit1, commit2])
 
         fish = analyzer.population[0]
         assert fish.is_alive is True
@@ -245,19 +239,12 @@ class TestFishStaysAlive:
 class TestLazarusEvents:
     """Cases where fish go extinct and are later resurrected."""
 
-    def _run_analyzer(self, commits: list) -> Analyzer:
-        analyzer = Analyzer("fake/repo", similarity_threshold=0.7, size_threshold=3)
-        with patch("pydriller.Repository") as MockRepo:
-            MockRepo.return_value.traverse_commits.return_value = iter(commits)
-            analyzer.run()
-        return analyzer
-
     def test_lazarus_after_file_deleted_and_recreated(self):
         """Fish reappearing in a re-created file counts as a Lazarus event."""
         commit1 = _make_commit("c1", [_make_modified_file("a.py", BIG_FUNC)])
         commit2 = _make_commit("c2", [_make_modified_file("a.py", "")])
         commit3 = _make_commit("c3", [_make_modified_file("a.py", BIG_FUNC)])
-        analyzer = self._run_analyzer([commit1, commit2, commit3])
+        analyzer = _run_analyzer([commit1, commit2, commit3])
 
         fish = analyzer.population[0]
         assert fish.lazarus_count == 1
@@ -270,7 +257,7 @@ class TestLazarusEvents:
         commit3 = _make_commit("c3", [_make_modified_file("a.py", BIG_FUNC)])
         commit4 = _make_commit("c4", [_make_modified_file("a.py", "")])
         commit5 = _make_commit("c5", [_make_modified_file("a.py", BIG_FUNC)])
-        analyzer = self._run_analyzer([commit1, commit2, commit3, commit4, commit5])
+        analyzer = _run_analyzer([commit1, commit2, commit3, commit4, commit5])
 
         fish = analyzer.population[0]
         assert fish.lazarus_count == 2
@@ -284,7 +271,7 @@ class TestLazarusEvents:
         ])
         commit2 = _make_commit("c2", [_make_modified_file("a.py", "")])
         commit3 = _make_commit("c3", [_make_modified_file("a.py", BIG_FUNC)])
-        analyzer = self._run_analyzer([commit1, commit2, commit3])
+        analyzer = _run_analyzer([commit1, commit2, commit3])
 
         lazarus_fish = [f for f in analyzer.population if f.name == "process_data"][0]
         other_fish = [f for f in analyzer.population if f.name == "validate_config"][0]
@@ -299,7 +286,7 @@ class TestLazarusEvents:
         commit1 = _make_commit("c1", [_make_modified_file("a.py", BIG_FUNC)])
         commit2 = _make_commit("c2", [_make_modified_file("a.py", "")])
         commit3 = _make_commit("c3", [_make_modified_file("a.py", BIG_FUNC)])
-        analyzer = self._run_analyzer([commit1, commit2, commit3])
+        analyzer = _run_analyzer([commit1, commit2, commit3])
 
         assert len(analyzer.population) == 1
         fish = analyzer.population[0]

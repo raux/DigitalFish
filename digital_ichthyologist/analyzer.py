@@ -167,7 +167,12 @@ class Analyzer:
         Maintains a running snapshot (``_file_blocks``) of code blocks per
         file.  Only files that appear in *commit.modified_files* are updated;
         blocks from untouched files are carried forward so that their fish are
-        not incorrectly marked as extinct.
+        not incorrectly marked as extinct.  When a file is deleted or emptied
+        its blocks are removed from the snapshot.
+
+        Returns:
+            A :data:`BlockMap` (qualified-name → source-text) representing
+            every tracked code block across all files.
         """
         for modified_file in commit.modified_files:  # type: ignore[attr-defined]
             if not any(
