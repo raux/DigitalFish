@@ -1,2 +1,0 @@
-[console_scripts]
-digital-ichthyologist = digital_ichthyologist.cli:main

@@ -1,7 +1,0 @@
-pydriller>=2.5
-rapidfuzz>=3.0
-pandas>=2.0
-
-[dev]
-pytest>=7.0
-pytest-cov
