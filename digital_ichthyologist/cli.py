@@ -11,6 +11,7 @@ from typing import List, Optional
 
 from .analyzer import Analyzer
 from .reporter import Reporter
+from .vita import Vita
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -56,9 +57,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--output",
-        choices=["text", "json"],
+        choices=["text", "json", "vita"],
         default="text",
-        help="Output format (default: text).",
+        help="Output format (default: text). 'vita' generates an interactive HTML dashboard.",
     )
     parser.add_argument(
         "--out-file",
@@ -106,6 +107,11 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.output == "json":
         output = reporter.to_json()
+    elif args.output == "vita":
+        vita = Vita(population, total_commits, top_n=args.top_n)
+        output = vita.render()
+        if not args.out_file:
+            args.out_file = "vita_dashboard.html"
     else:
         output = "\n".join(
             [
