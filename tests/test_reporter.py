@@ -48,6 +48,13 @@ class TestSurvivalHeatmap:
         # "old" should appear before "young" in the output
         assert output.index("old") < output.index("young")
 
+    def test_shows_line_count(self):
+        population = [_make_fish("func", 5)]
+        r = Reporter(population)
+        output = r.survival_heatmap()
+        assert "Lines" in output
+        assert str(population[0].line_count) in output
+
 
 class TestLazarusReport:
     def test_no_lazarus_events(self):
@@ -68,6 +75,13 @@ class TestLazarusReport:
         r = Reporter(pop)
         output = r.lazarus_report()
         assert output.index("twice") < output.index("once")
+
+    def test_shows_line_count(self):
+        population = [_make_fish("phoenix", 4, lazarus=1)]
+        r = Reporter(population)
+        output = r.lazarus_report()
+        assert "Lines" in output
+        assert str(population[0].line_count) in output
 
 
 class TestEcosystemHealth:
