@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "digital-ichthyologist"
+version = "0.1.0"
+description = "Evolutionary Code Analyst – track code organisms through Git history"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+dependencies = [
+    "pydriller>=2.5",
+    "rapidfuzz>=3.0",
+    "pandas>=2.0",
+]
+
+[project.scripts]
+digital-ichthyologist = "digital_ichthyologist.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
