@@ -32,7 +32,14 @@
 ## Installation
 
 ```bash
+pip install -r requirements.txt
 pip install -e .
+```
+
+Then run the digital ichthyologist:
+
+```bash
+digital-ichthyologist /path/to/repo
 ```
 
 ### Dependencies
