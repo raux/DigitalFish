@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Evolutionary Code Analyst – track code organisms through Git history"
 readme = "README.md"
 requires-python = ">=3.8"
-license = { text = "MIT" }
+license = "MIT"
 dependencies = [
     "pydriller>=2.5",
     "rapidfuzz>=3.0",
@@ -23,6 +23,9 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
 ]
+
+[tool.setuptools.packages.find]
+include = ["digital_ichthyologist*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
