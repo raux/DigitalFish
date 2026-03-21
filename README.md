@@ -60,6 +60,10 @@ digital-ichthyologist https://github.com/user/repo \
 # JSON output to a file
 digital-ichthyologist /path/to/repo --output json --out-file report.json
 
+# Interactive HTML dashboard (Vita)
+digital-ichthyologist /path/to/repo --output vita
+digital-ichthyologist /path/to/repo --output vita --out-file dashboard.html
+
 # Analyse a specific branch and commit range
 digital-ichthyologist /path/to/repo \
     --branch main \
@@ -143,6 +147,20 @@ overall project stability.
   Avg mutation rate        : 0.231
 ```
 
+### 4. Vita – Interactive HTML Dashboard
+
+A self-contained HTML page with interactive charts and sortable tables
+visualising all ecosystem metrics.  Generated with `--output vita`.
+
+The dashboard includes:
+- **Ecosystem Health** summary stat cards
+- **Population Status** doughnut chart (alive vs extinct)
+- **Age Distribution** histogram
+- **Mutation Rate vs Age** scatter plot
+- **Lazarus Events** horizontal bar chart
+- **Survival Heatmap** table with stability bars
+- **All Fish** sortable detail table
+
 ---
 
 ## Project Structure
@@ -154,12 +172,14 @@ digital_ichthyologist/
 ├── extractor.py      # AST-based code block extractor
 ├── analyzer.py       # Survival analysis engine
 ├── reporter.py       # Report generators
+├── vita.py           # Interactive HTML dashboard (Vita)
 └── cli.py            # Command-line interface
 tests/
 ├── test_fish.py
 ├── test_extractor.py
 ├── test_analyzer.py
-└── test_reporter.py
+├── test_reporter.py
+└── test_vita.py
 ```
 
 ---
