@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
+import subprocess
+import sys
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from rapidfuzz import fuzz
+from tqdm import tqdm
 
 from .extractor import BlockInfo, get_functions_and_classes
 from .fish import DigitalFish
@@ -75,6 +78,37 @@ def _find_best_match(
 
 
 # ---------------------------------------------------------------------------
+# Helper: estimate total commit count for progress bars
+# ---------------------------------------------------------------------------
+
+def _estimate_commit_count(
+    repo_path: str,
+    branch: Optional[str] = None,
+    from_commit: Optional[str] = None,
+    to_commit: Optional[str] = None,
+) -> Optional[int]:
+    """Use ``git rev-list --count`` to quickly estimate the number of commits.
+
+    Returns ``None`` when the count cannot be determined (e.g. remote URL or
+    missing git binary), in which case *tqdm* falls back to an indeterminate
+    progress bar.
+    """
+    ref = to_commit or branch or "HEAD"
+    cmd = ["git", "-C", str(repo_path), "rev-list", "--count"]
+    if from_commit:
+        cmd.append(f"{from_commit}^..{ref}")
+    else:
+        cmd.append(ref)
+    try:
+        result = subprocess.run(  # noqa: S603
+            cmd, capture_output=True, text=True, check=True,
+        )
+        return int(result.stdout.strip())
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Main Analyzer class
 # ---------------------------------------------------------------------------
 
@@ -92,6 +126,7 @@ class Analyzer:
         branch: Branch to traverse.  ``None`` uses PyDriller's default.
         from_commit: Start traversal from this commit SHA (inclusive).
         to_commit: Stop traversal at this commit SHA (inclusive).
+        progress: If ``True``, display progress bars on *stderr*.
     """
 
     def __init__(
@@ -104,6 +139,7 @@ class Analyzer:
         branch: Optional[str] = None,
         from_commit: Optional[str] = None,
         to_commit: Optional[str] = None,
+        progress: bool = False,
     ) -> None:
         self.repo_path = repo_path
         self.similarity_threshold = similarity_threshold
@@ -112,6 +148,7 @@ class Analyzer:
         self.branch = branch
         self.from_commit = from_commit
         self.to_commit = to_commit
+        self._progress = progress
 
         # All fish ever seen (alive + extinct)
         self.population: List[DigitalFish] = []
@@ -145,12 +182,40 @@ class Analyzer:
         logger.info("Starting analysis of %s", self.repo_path)
         commit_count = 0
 
-        for commit in Repository(self.repo_path, **kwargs).traverse_commits():
+        total = (
+            _estimate_commit_count(
+                self.repo_path, self.branch, self.from_commit, self.to_commit
+            )
+            if self._progress
+            else None
+        )
+
+        commits_iter = Repository(self.repo_path, **kwargs).traverse_commits()
+        commit_bar: Optional[tqdm] = None
+
+        if self._progress:
+            commit_bar = tqdm(
+                commits_iter,
+                total=total,
+                desc="Analysing commits",
+                unit="commit",
+                file=sys.stderr,
+            )
+            commits_iter = commit_bar
+
+        for commit in commits_iter:
             commit_count += 1
             logger.debug("Processing commit %s (%s)", commit.hash[:8], commit.msg[:60])
 
-            current_blocks = self._extract_blocks(commit)
+            n_files = len(commit.modified_files)
+            if commit_bar is not None:
+                commit_bar.set_postfix(files=n_files, refresh=False)
+
+            current_blocks = self._extract_blocks(commit, commit_bar)
             self._process_commit(current_blocks, commit.hash)
+
+        if commit_bar is not None:
+            commit_bar.close()
 
         logger.info(
             "Analysis complete: %d commits, %d fish tracked.",
@@ -163,7 +228,9 @@ class Analyzer:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _extract_blocks(self, commit: object) -> BlockMap:
+    def _extract_blocks(
+        self, commit: object, commit_bar: Optional[tqdm] = None,
+    ) -> BlockMap:
         """Return all code blocks visible in *commit*.
 
         Maintains a running snapshot (``_file_blocks``) of code blocks per
@@ -176,7 +243,19 @@ class Analyzer:
             A :data:`BlockMap` (qualified-name → source-text) representing
             every tracked code block across all files.
         """
-        for modified_file in commit.modified_files:  # type: ignore[attr-defined]
+        modified = commit.modified_files  # type: ignore[attr-defined]
+        file_iter = modified
+
+        if self._progress and len(modified) > 1:
+            file_iter = tqdm(
+                modified,
+                desc="  Scanning files",
+                unit="file",
+                leave=False,
+                file=sys.stderr,
+            )
+
+        for modified_file in file_iter:
             if not any(
                 modified_file.filename.endswith(ext) for ext in self.file_extensions
             ):
@@ -197,6 +276,9 @@ class Analyzer:
                     commit.hash[:8],  # type: ignore[attr-defined]
                     exc,
                 )
+
+        if self._progress and len(modified) > 1 and isinstance(file_iter, tqdm):
+            file_iter.close()
 
         # Build the complete block map from all tracked files.
         blocks: BlockMap = {}

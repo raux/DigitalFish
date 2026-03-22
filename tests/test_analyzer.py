@@ -308,3 +308,96 @@ class TestLazarusEvents:
         fish = analyzer.population[0]
         assert fish.birth_commit == "c1"
         assert fish.fish_id == hash("process_data" + "c1")
+
+
+# ---------------------------------------------------------------------------
+# Progress bar tests
+# ---------------------------------------------------------------------------
+
+def _run_analyzer_with_progress(commits: list) -> Analyzer:
+    """Run an analyzer with progress=True against a fake commit sequence."""
+    analyzer = Analyzer(
+        "fake/repo", similarity_threshold=0.7, size_threshold=3, progress=True,
+    )
+    with patch("pydriller.Repository") as MockRepo:
+        MockRepo.return_value.traverse_commits.return_value = iter(commits)
+        with patch(
+            "digital_ichthyologist.analyzer._estimate_commit_count", return_value=len(commits),
+        ):
+            analyzer.run()
+    return analyzer
+
+
+class TestProgressBar:
+    """Verify that progress=True does not break analysis results."""
+
+    def test_progress_flag_accepted(self):
+        """Analyzer accepts progress keyword without error."""
+        analyzer = Analyzer("fake/repo", progress=True)
+        assert analyzer._progress is True
+
+    def test_progress_disabled_by_default(self):
+        """Progress is off by default."""
+        analyzer = Analyzer("fake/repo")
+        assert analyzer._progress is False
+
+    def test_analysis_with_progress_produces_same_results(self):
+        """Enabling progress must not change the analysis outcome."""
+        commit1 = _make_commit("c1", [_make_modified_file("a.py", BIG_FUNC)])
+        commit2 = _make_commit("c2", [_make_modified_file("a.py", MUTATED_FUNC)])
+        commit3 = _make_commit("c3", [_make_modified_file("a.py", "")])
+
+        normal = _run_analyzer([commit1, commit2, commit3])
+        with_progress = _run_analyzer_with_progress([commit1, commit2, commit3])
+
+        assert len(normal.population) == len(with_progress.population)
+        for nf, pf in zip(normal.population, with_progress.population):
+            assert nf.name == pf.name
+            assert nf.is_alive == pf.is_alive
+            assert nf.age == pf.age
+
+    def test_progress_with_multiple_files_per_commit(self):
+        """Progress works when a commit touches many files."""
+        commit1 = _make_commit("c1", [
+            _make_modified_file("a.py", BIG_FUNC),
+            _make_modified_file("b.py", OTHER_FUNC),
+            _make_modified_file("c.py", THIRD_FUNC),
+        ])
+        analyzer = _run_analyzer_with_progress([commit1])
+        assert len(analyzer.population) == 3
+
+    def test_progress_with_no_commits(self):
+        """Progress handles an empty commit stream gracefully."""
+        analyzer = _run_analyzer_with_progress([])
+        assert len(analyzer.population) == 0
+
+
+class TestEstimateCommitCount:
+    """Tests for the _estimate_commit_count helper."""
+
+    def test_returns_none_for_nonexistent_repo(self):
+        from digital_ichthyologist.analyzer import _estimate_commit_count
+        result = _estimate_commit_count("/nonexistent/repo/path")
+        assert result is None
+
+    def test_returns_int_for_valid_repo(self, tmp_path):
+        from digital_ichthyologist.analyzer import _estimate_commit_count
+        import subprocess
+        # Create a minimal git repo with one commit
+        subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "config", "user.email", "test@test.com"],
+            check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "config", "user.name", "Test"],
+            check=True, capture_output=True,
+        )
+        (tmp_path / "f.py").write_text("x = 1\n")
+        subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "commit", "-m", "init"],
+            check=True, capture_output=True,
+        )
+        result = _estimate_commit_count(str(tmp_path))
+        assert result == 1

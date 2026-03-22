@@ -79,6 +79,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable verbose logging.",
     )
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Disable progress bar animations.",
+    )
     return parser
 
 
@@ -91,6 +96,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         format="%(levelname)s %(name)s: %(message)s",
     )
 
+    show_progress = not args.no_progress and sys.stderr.isatty()
+
     analyzer = Analyzer(
         repo_path=args.repo,
         similarity_threshold=args.similarity_threshold,
@@ -98,6 +105,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         branch=args.branch,
         from_commit=args.from_commit,
         to_commit=args.to_commit,
+        progress=show_progress,
     )
 
     population = analyzer.run()
