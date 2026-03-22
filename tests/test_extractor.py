@@ -1,5 +1,7 @@
 """Tests for the code extractor."""
 
+import warnings
+
 import pytest
 
 from digital_ichthyologist.extractor import BlockInfo, get_functions_and_classes
@@ -114,3 +116,18 @@ class TestGetFunctionsAndClasses:
         info = result["Animal.speak"]
         assert info.start_line == 2
         assert info.end_line == 4
+
+    def test_invalid_escape_sequence_no_warning(self):
+        source = (
+            "def regex_func():\n"
+            r"    pattern = '\d+'" "\n"
+            "    x = 1\n"
+            "    y = 2\n"
+            "    return pattern\n"
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result = get_functions_and_classes(source)
+        syntax_warnings = [w for w in caught if issubclass(w.category, SyntaxWarning)]
+        assert syntax_warnings == [], "extractor should not emit SyntaxWarning"
+        assert "regex_func" in result

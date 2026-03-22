@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import textwrap
+import warnings
 from typing import Dict, NamedTuple, Optional
 
 
@@ -59,7 +60,9 @@ def get_functions_and_classes(
         discovered code block.
     """
     try:
-        tree = ast.parse(source_code)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", SyntaxWarning)
+            tree = ast.parse(source_code)
     except SyntaxError:
         return {}
 
