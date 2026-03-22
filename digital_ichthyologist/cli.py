@@ -11,6 +11,7 @@ from typing import List, Optional
 
 from .analyzer import Analyzer
 from .reporter import Reporter
+from .similarity import METHODS as SIMILARITY_METHODS
 from .vita import Vita
 
 
@@ -35,7 +36,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--similarity-method",
-        choices=["levenshtein", "hamming", "jaccard", "cosine"],
+        choices=SIMILARITY_METHODS,
         default="levenshtein",
         help=(
             "Similarity metric to use for comparing code blocks "
