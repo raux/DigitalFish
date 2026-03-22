@@ -26,6 +26,20 @@
 |---|---|---|---|
 | Size threshold | σ | 5 lines | Minimum meaningful lines; smaller blocks are "plankton" |
 | Similarity threshold | λ | 0.7 | Minimum fuzzy-match ratio for identity to be preserved |
+| Similarity method | – | levenshtein | Algorithm used to compare fish DNA (see below) |
+
+### Similarity Methods
+
+The `--similarity-method` flag (or `similarity_method` in the Python API) selects the
+algorithm used to measure how similar two code blocks are.  All methods return a
+value in **[0, 1]** where **1** means identical.
+
+| Method | Description | Best for |
+|---|---|---|
+| `levenshtein` | Edit-distance similarity via [RapidFuzz](https://github.com/maxbachmann/RapidFuzz). Measures the minimum number of single-character edits needed to transform one string into the other, normalised to [0, 1]. | General-purpose; sensitive to small, localised edits such as variable renames or single-line fixes. |
+| `hamming` | Positional character-by-character comparison (shorter string padded with nulls). Counts the number of positions where corresponding characters differ, normalised by total length. | Detecting single-character substitutions in blocks of roughly equal length. |
+| `jaccard` | Set-based overlap of whitespace-delimited tokens. Computes `|A ∩ B| / |A ∪ B|` over token sets. | Catching structural rewrites where the same tokens appear but in a different order. |
+| `cosine` | Cosine similarity over token-frequency vectors. Measures the cosine of the angle between two token-count vectors. | Comparing blocks that share vocabulary but differ in token frequency (e.g. duplicated logic). |
 
 ---
 
@@ -64,6 +78,10 @@ digital-ichthyologist https://github.com/user/repo \
     --size-threshold 10 \
     --top-n 30
 
+# Use a different similarity method
+digital-ichthyologist /path/to/repo --similarity-method jaccard
+digital-ichthyologist /path/to/repo --similarity-method cosine --similarity-threshold 0.6
+
 # JSON output to a file
 digital-ichthyologist /path/to/repo --output json --out-file report.json
 
@@ -88,6 +106,7 @@ analyzer = Analyzer(
     repo_path="/path/to/repo",
     similarity_threshold=0.7,
     size_threshold=5,
+    similarity_method="levenshtein",   # or "hamming", "jaccard", "cosine"
 )
 population = analyzer.run()
 
@@ -179,6 +198,7 @@ digital_ichthyologist/
 ├── extractor.py      # AST-based code block extractor
 ├── analyzer.py       # Survival analysis engine
 ├── reporter.py       # Report generators
+├── similarity.py     # Similarity metrics (levenshtein, hamming, jaccard, cosine)
 ├── vita.py           # Interactive HTML dashboard (Vita)
 └── cli.py            # Command-line interface
 tests/
