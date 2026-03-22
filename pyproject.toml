@@ -13,6 +13,7 @@ dependencies = [
     "pydriller>=2.5",
     "rapidfuzz>=3.0",
     "pandas>=2.0",
+    "tqdm>=4.60",
 ]
 
 [project.scripts]
