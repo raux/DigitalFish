@@ -191,7 +191,7 @@ class Analyzer:
         )
 
         commits_iter = Repository(self.repo_path, **kwargs).traverse_commits()
-        commit_bar: Optional[tqdm] = None  # type: ignore[type-arg]
+        commit_bar: Optional[tqdm] = None
 
         if self._progress:
             commit_bar = tqdm(
@@ -229,7 +229,7 @@ class Analyzer:
     # ------------------------------------------------------------------
 
     def _extract_blocks(
-        self, commit: object, commit_bar: Optional[tqdm] = None,  # type: ignore[type-arg]
+        self, commit: object, commit_bar: Optional[tqdm] = None,
     ) -> BlockMap:
         """Return all code blocks visible in *commit*.
 
@@ -277,8 +277,8 @@ class Analyzer:
                     exc,
                 )
 
-        if self._progress and len(modified) > 1 and hasattr(file_iter, "close"):
-            file_iter.close()  # type: ignore[union-attr]
+        if self._progress and len(modified) > 1 and isinstance(file_iter, tqdm):
+            file_iter.close()
 
         # Build the complete block map from all tracked files.
         blocks: BlockMap = {}
