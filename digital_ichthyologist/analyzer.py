@@ -5,13 +5,13 @@ from __future__ import annotations
 import logging
 import subprocess
 import sys
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
-from rapidfuzz import fuzz
 from tqdm import tqdm
 
 from .extractor import BlockInfo, get_functions_and_classes
 from .fish import DigitalFish
+from .similarity import get_similarity_func, levenshtein
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +26,13 @@ BlockMap = Dict[str, BlockInfo]  # qualified_name -> BlockInfo(source, start_lin
 # ---------------------------------------------------------------------------
 
 def _similarity(a: str, b: str) -> float:
-    """Return a similarity ratio in [0, 1] between two source strings."""
-    return fuzz.ratio(a, b) / 100.0
+    """Return a similarity ratio in [0, 1] between two source strings.
+
+    Uses Levenshtein-based fuzzy matching by default.  The
+    :class:`Analyzer` class accepts a *similarity_method* parameter to
+    choose an alternative metric.
+    """
+    return levenshtein(a, b)
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +57,7 @@ def _find_best_match(
     current_blocks: BlockMap,
     similarity_threshold: float,
     size_threshold: int,
+    similarity_func: Callable[[str, str], float] = _similarity,
 ) -> Optional[Tuple[str, BlockInfo, float]]:
     """Find the best-matching block for *fish* in *current_blocks*.
 
@@ -66,7 +72,7 @@ def _find_best_match(
     for name, info in current_blocks.items():
         if _meaningful_lines(info.source) < size_threshold:
             continue
-        sim = _similarity(fish.content, info.source)
+        sim = similarity_func(fish.content, info.source)
         if sim >= similarity_threshold and sim > best_sim:
             best_name = name
             best_info = info
@@ -121,6 +127,9 @@ class Analyzer:
             (λ – default 0.7).
         size_threshold: Minimum meaningful line count for a block to be
             considered a fish (σ – default 5).
+        similarity_method: Name of the similarity metric to use.  One of
+            ``"levenshtein"`` (default), ``"hamming"``, ``"jaccard"``, or
+            ``"cosine"``.
         file_extensions: Iterable of file suffixes to analyse.  Defaults to
             ``[".py"]``.
         branch: Branch to traverse.  ``None`` uses PyDriller's default.
@@ -135,6 +144,7 @@ class Analyzer:
         *,
         similarity_threshold: float = 0.7,
         size_threshold: int = 5,
+        similarity_method: str = "levenshtein",
         file_extensions: Optional[Iterable[str]] = None,
         branch: Optional[str] = None,
         from_commit: Optional[str] = None,
@@ -144,6 +154,8 @@ class Analyzer:
         self.repo_path = repo_path
         self.similarity_threshold = similarity_threshold
         self.size_threshold = size_threshold
+        self.similarity_method = similarity_method
+        self._similarity_func = get_similarity_func(similarity_method)
         self.file_extensions: List[str] = list(file_extensions or [".py"])
         self.branch = branch
         self.from_commit = from_commit
@@ -303,7 +315,8 @@ class Analyzer:
         # --- survival pass ---
         for fish in self._active:
             match = _find_best_match(
-                fish, unclaimed, self.similarity_threshold, self.size_threshold
+                fish, unclaimed, self.similarity_threshold, self.size_threshold,
+                self._similarity_func,
             )
             if match is not None:
                 matched_name, matched_info, sim = match
@@ -349,7 +362,7 @@ class Analyzer:
         for fish in self.population:
             if fish.is_alive:
                 continue
-            sim = _similarity(fish.content, content)
+            sim = self._similarity_func(fish.content, content)
             if fish.name == name and sim >= self.similarity_threshold:
                 fish.resurrect(content, commit_hash)
                 return fish

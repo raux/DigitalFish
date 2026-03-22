@@ -34,6 +34,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Minimum similarity ratio (0–1) for a fish to survive (default: 0.7).",
     )
     parser.add_argument(
+        "--similarity-method",
+        choices=["levenshtein", "hamming", "jaccard", "cosine"],
+        default="levenshtein",
+        help=(
+            "Similarity metric to use for comparing code blocks "
+            "(default: levenshtein)."
+        ),
+    )
+    parser.add_argument(
         "--size-threshold",
         type=int,
         default=5,
@@ -102,6 +111,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         repo_path=args.repo,
         similarity_threshold=args.similarity_threshold,
         size_threshold=args.size_threshold,
+        similarity_method=args.similarity_method,
         branch=args.branch,
         from_commit=args.from_commit,
         to_commit=args.to_commit,
