@@ -11,6 +11,7 @@ from typing import List, Optional
 
 from .analyzer import Analyzer
 from .reporter import Reporter
+from .similarity import METHODS as SIMILARITY_METHODS
 from .vita import Vita
 
 
@@ -32,6 +33,15 @@ def _build_parser() -> argparse.ArgumentParser:
         default=0.7,
         metavar="λ",
         help="Minimum similarity ratio (0–1) for a fish to survive (default: 0.7).",
+    )
+    parser.add_argument(
+        "--similarity-method",
+        choices=SIMILARITY_METHODS,
+        default="levenshtein",
+        help=(
+            "Similarity metric to use for comparing code blocks "
+            "(default: levenshtein)."
+        ),
     )
     parser.add_argument(
         "--size-threshold",
@@ -102,6 +112,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         repo_path=args.repo,
         similarity_threshold=args.similarity_threshold,
         size_threshold=args.size_threshold,
+        similarity_method=args.similarity_method,
         branch=args.branch,
         from_commit=args.from_commit,
         to_commit=args.to_commit,
