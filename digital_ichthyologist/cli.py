@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import sys
 from pathlib import Path
@@ -92,7 +91,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-progress",
         action="store_true",
-        help="Disable progress bar animations.",
+        help="Disable progress bar animations (plain-output mode only).",
+    )
+    parser.add_argument(
+        "--no-tui",
+        action="store_true",
+        help="Disable the interactive TUI and print plain text output.",
     )
     return parser
 
@@ -106,9 +110,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         format="%(levelname)s %(name)s: %(message)s",
     )
 
-    show_progress = not args.no_progress and sys.stderr.isatty()
-
-    analyzer = Analyzer(
+    # Build shared Analyzer keyword arguments
+    analyzer_kwargs = dict(
         repo_path=args.repo,
         similarity_threshold=args.similarity_threshold,
         size_threshold=args.size_threshold,
@@ -116,9 +119,28 @@ def main(argv: Optional[List[str]] = None) -> int:
         branch=args.branch,
         from_commit=args.from_commit,
         to_commit=args.to_commit,
-        progress=show_progress,
     )
 
+    # Use the TUI when: running in a TTY, default text output, and not suppressed
+    use_tui = (
+        args.output == "text"
+        and not args.no_tui
+        and sys.stdout.isatty()
+    )
+
+    if use_tui:
+        from .tui import run_tui
+        run_tui(
+            analyzer_kwargs=analyzer_kwargs,
+            top_n=args.top_n,
+            out_file=args.out_file,
+        )
+        return 0
+
+    # --- Plain / non-interactive output path ---
+    show_progress = not args.no_progress and sys.stderr.isatty()
+
+    analyzer = Analyzer(**analyzer_kwargs, progress=show_progress)
     population = analyzer.run()
     total_commits = sum(1 for _ in _count_commits(analyzer))
 
