@@ -126,7 +126,7 @@ class TestLoadingScreen:
 # ---------------------------------------------------------------------------
 
 def _make_fish(name: str, alive: bool = True, age: int = 3) -> DigitalFish:
-    fish = DigitalFish(name, "def f(): pass\n  x=1\n  y=2\n  z=3\n  return\n", "c1")
+    fish = DigitalFish(name, "def f():\n    x = 1\n    y = 2\n    z = 3\n    return\n", "c1")
     for i in range(age):
         fish.survive(f"content_{i}", f"c{i+2}", 0.9)
     if not alive:

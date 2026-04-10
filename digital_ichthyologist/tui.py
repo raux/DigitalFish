@@ -567,7 +567,7 @@ class ResultsScreen(Screen):
         self._populate_heatmap()
         self._populate_lazarus()
         self._populate_ecosystem()
-        # Auto-export when a non-text output format was chosen in the setup form
+        # Execute the matching export action when a non-text format was chosen
         if self._output_format == "json":
             self.action_export_json()
         elif self._output_format == "vita":
