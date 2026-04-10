@@ -24,7 +24,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "repo",
-        help="Local path or remote URL of the Git repository to analyse.",
+        nargs="?",
+        default=None,
+        help=(
+            "Local path or remote URL of the Git repository to analyse. "
+            "When omitted the interactive TUI setup form is shown."
+        ),
     )
     parser.add_argument(
         "--similarity-threshold",
@@ -110,7 +115,52 @@ def main(argv: Optional[List[str]] = None) -> int:
         format="%(levelname)s %(name)s: %(message)s",
     )
 
-    # Build shared Analyzer keyword arguments
+    # Use the TUI when: running in a TTY and not suppressed
+    use_tui = not args.no_tui and sys.stdout.isatty()
+
+    if use_tui:
+        from .tui import run_tui
+
+        if args.repo is not None:
+            # Repo provided – skip the setup form and go straight to analysis
+            analyzer_kwargs = dict(
+                repo_path=args.repo,
+                similarity_threshold=args.similarity_threshold,
+                size_threshold=args.size_threshold,
+                similarity_method=args.similarity_method,
+                branch=args.branch,
+                from_commit=args.from_commit,
+                to_commit=args.to_commit,
+            )
+            run_tui(
+                analyzer_kwargs=analyzer_kwargs,
+                top_n=args.top_n,
+                out_file=args.out_file,
+                output_format=args.output,
+            )
+        else:
+            # No repo – show the interactive setup form (bubbletea-style)
+            setup_defaults = dict(
+                repo="",
+                similarity_threshold=args.similarity_threshold,
+                similarity_method=args.similarity_method,
+                size_threshold=args.size_threshold,
+                branch=args.branch,
+                from_commit=args.from_commit,
+                to_commit=args.to_commit,
+                output=args.output,
+                top_n=args.top_n,
+                out_file=args.out_file,
+            )
+            run_tui(setup_defaults=setup_defaults)
+        return 0
+
+    # --- Plain / non-interactive output path ---
+    if args.repo is None:
+        parser.error("the following argument is required in --no-tui mode: repo")
+
+    show_progress = not args.no_progress and sys.stderr.isatty()
+
     analyzer_kwargs = dict(
         repo_path=args.repo,
         similarity_threshold=args.similarity_threshold,
@@ -120,25 +170,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         from_commit=args.from_commit,
         to_commit=args.to_commit,
     )
-
-    # Use the TUI when: running in a TTY, default text output, and not suppressed
-    use_tui = (
-        args.output == "text"
-        and not args.no_tui
-        and sys.stdout.isatty()
-    )
-
-    if use_tui:
-        from .tui import run_tui
-        run_tui(
-            analyzer_kwargs=analyzer_kwargs,
-            top_n=args.top_n,
-            out_file=args.out_file,
-        )
-        return 0
-
-    # --- Plain / non-interactive output path ---
-    show_progress = not args.no_progress and sys.stderr.isatty()
 
     analyzer = Analyzer(**analyzer_kwargs, progress=show_progress)
     population = analyzer.run()
