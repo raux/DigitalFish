@@ -7,14 +7,13 @@ name = "digital-ichthyologist"
 version = "0.1.0"
 description = "Evolutionary Code Analyst – track code organisms through Git history"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.8"
 license = "MIT"
 dependencies = [
     "pydriller>=2.5",
     "rapidfuzz>=3.0",
     "pandas>=2.0",
     "tqdm>=4.60",
-    "textual>=0.50",
 ]
 
 [project.scripts]
