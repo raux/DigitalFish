@@ -48,6 +48,8 @@ value in **[0, 1]** where **1** means identical.
 ```bash
 pip install -r requirements.txt
 pip install -e .
+# For development and testing
+pip install -e ".[dev]"
 ```
 
 Then run the digital ichthyologist:
